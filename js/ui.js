@@ -12,6 +12,7 @@ class AppUI {
         this.activeFilter = 'all';
         this.activeAnalyticsMonth = '';
         this.undoStack = null; // Single undo slot for deleting transactions
+        this.editingTransactionId = null; // Stored transaction ID when editing
         
         this.initDOMElements();
         this.bindEvents();
@@ -54,6 +55,7 @@ class AppUI {
         this.entryCustomCategory = document.getElementById('entry-custom-category');
         this.exportExcelBtn = document.getElementById('analytics-export-excel-btn');
         this.pwaIconsBtn = document.getElementById('settings-pwa-icons-btn');
+        this.balanceVisibilityBtn = document.getElementById('balance-visibility-btn');
 
         // Overlays
         this.genericDialog = document.getElementById('generic-dialog');
@@ -63,6 +65,14 @@ class AppUI {
         // Theme Switcher buttons
         this.themeChips = document.querySelectorAll('.theme-picker .theme-chip');
         this.headerThemeBtn = document.getElementById('theme-toggle-btn');
+    }
+
+    formatAmount(amount, showSign = false, signText = '') {
+        const symbol = window.store.settings.currency;
+        if (window.store.settings.privacyMode) {
+            return `${showSign ? signText : ''}${symbol}••••`;
+        }
+        return `${showSign ? signText : ''}${symbol}${parseFloat(amount).toFixed(2)}`;
     }
 
     startAndroidClock() {
@@ -139,14 +149,20 @@ class AppUI {
         const stats = window.store.getOverallSummary();
         const symbol = window.store.settings.currency;
 
+        // Privacy eye icon state selector
+        const eyeIcon = this.balanceVisibilityBtn.querySelector('.material-symbols-outlined');
+        if (eyeIcon) {
+            eyeIcon.textContent = window.store.settings.privacyMode ? 'visibility_off' : 'visibility';
+        }
+
         // Header and Balance Panel
         document.getElementById('header-username').textContent = window.store.settings.username;
         document.getElementById('header-avatar').textContent = window.store.settings.username.substring(0,2).toUpperCase();
         
         const balanceEl = document.getElementById('dash-balance');
-        balanceEl.textContent = `${stats.balance < 0 ? '-' : ''}${symbol}${Math.abs(stats.balance).toFixed(2)}`;
-        document.getElementById('dash-income').textContent = `+${symbol}${stats.totalIncome.toFixed(2)}`;
-        document.getElementById('dash-expense').textContent = `-${symbol}${stats.totalExpense.toFixed(2)}`;
+        balanceEl.textContent = this.formatAmount(Math.abs(stats.balance), stats.balance < 0, '-');
+        document.getElementById('dash-income').textContent = this.formatAmount(stats.totalIncome, true, '+');
+        document.getElementById('dash-expense').textContent = this.formatAmount(stats.totalExpense, true, '-');
         
         // Savings Progress
         const pct = Math.min(100, Math.max(0, Math.round(stats.savingsRate)));
@@ -154,7 +170,7 @@ class AppUI {
         document.getElementById('dash-savings-bar').style.width = `${pct}%`;
         
         // Daily average & Main spend mode
-        document.getElementById('dash-daily-avg').textContent = `${symbol}${stats.dailyAvg.toFixed(2)}`;
+        document.getElementById('dash-daily-avg').textContent = this.formatAmount(stats.dailyAvg);
         document.getElementById('dash-main-mode').textContent = stats.mainMode;
 
         // Recent items list
@@ -179,11 +195,15 @@ class AppUI {
     }
 
     createTransactionTile(t) {
-        const symbol = window.store.settings.currency;
         const categoryObj = window.store.getCategoryById(t.category, t.type);
 
         const tile = document.createElement('div');
         tile.className = 'transaction-tile ripple';
+        
+        // Tap-to-edit transaction click trigger
+        tile.addEventListener('click', () => {
+            this.openEditDialog(t.id);
+        });
         
         // Format Date
         const dateObj = new Date(t.date);
@@ -197,7 +217,12 @@ class AppUI {
         }
         
         // Determine vector icon
-        const iconName = t.mode === 'Card' ? 'credit_card' : t.mode === 'UPI' ? 'qr_code_2' : t.mode === 'Bank' ? 'account_balance' : 'payments';
+        const iconName = t.mode === 'Card' ? 'credit_card' 
+            : t.mode === 'UPI' ? 'qr_code_2' 
+            : t.mode === 'Bank' ? 'account_balance' 
+            : t.mode === 'Amazon Pay' ? 'shopping_bag' 
+            : t.mode === 'Voucher' ? 'card_giftcard' 
+            : 'payments';
         
         tile.innerHTML = `
             <div class="tile-left">
@@ -214,7 +239,7 @@ class AppUI {
             </div>
             <div class="tile-right">
                 <span class="tile-amount ${t.type}">
-                    ${t.type === 'income' ? '+' : '-'}${symbol}${t.amount.toFixed(2)}
+                    ${this.formatAmount(t.amount, true, t.type === 'income' ? '+' : '-')}
                 </span>
                 <button class="icon-btn delete-tile-btn ripple" title="Delete record" onclick="event.stopPropagation(); window.ui.triggerDelete('${t.id}')">
                     <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
@@ -336,13 +361,12 @@ class AppUI {
         if (!monthVal) return;
 
         const data = window.store.getMonthSummary(monthVal);
-        const symbol = window.store.settings.currency;
 
         // Statistics sheet updates
-        document.getElementById('analytics-budget-val').textContent = `${symbol}${window.store.settings.budget.toFixed(2)}`;
+        document.getElementById('analytics-budget-val').textContent = this.formatAmount(window.store.settings.budget);
         
         const leftValEl = document.getElementById('analytics-left-val');
-        leftValEl.textContent = `${symbol}${data.remainingBudget.toFixed(2)}`;
+        leftValEl.textContent = this.formatAmount(data.remainingBudget);
         if (data.remainingBudget <= 0) {
             leftValEl.style.color = 'var(--md-sys-color-error)';
         } else {
@@ -363,7 +387,7 @@ class AppUI {
                     <span class="material-symbols-outlined" style="font-size: 16px; color: var(--md-sys-color-primary);">calendar_view_week</span>
                     <span>${weeks[idx]}</span>
                 </div>
-                <div class="weekly-tile-right">${symbol}${val.toFixed(2)}</div>
+                <div class="weekly-tile-right">${this.formatAmount(val)}</div>
             `;
             weeklyDetailsList.appendChild(tile);
         });
@@ -383,7 +407,7 @@ class AppUI {
                     <div class="legend-dot" style="background-color: ${c.color}"></div>
                     <div class="legend-txt">
                         <span class="legend-lbl">${c.name}</span>
-                        <span class="legend-val">${symbol}${c.amount.toFixed(2)}</span>
+                        <span class="legend-val">${this.formatAmount(c.amount)}</span>
                     </div>
                 `;
                 catLegendList.appendChild(item);
@@ -405,7 +429,7 @@ class AppUI {
                     <div class="legend-dot" style="background-color: ${m.color}"></div>
                     <div class="legend-txt">
                         <span class="legend-lbl">${m.name}</span>
-                        <span class="legend-val">${symbol}${m.amount.toFixed(2)}</span>
+                        <span class="legend-val">${this.formatAmount(m.amount)}</span>
                     </div>
                 `;
                 modeLegendList.appendChild(item);
@@ -436,6 +460,7 @@ class AppUI {
        BOTTOM SHEET CREATOR DRAWER
     ---------------------------------------------------- */
     openAddDialog(type = 'expense') {
+        this.editingTransactionId = null;
         this.activeFormType = type;
         this.selectedMode = 'Cash';
         
@@ -470,6 +495,10 @@ class AppUI {
         this.renderCategoryChips();
         this.renderModeChips();
         
+        // Change Action button back to standard
+        const submitBtn = document.getElementById('entry-submit-btn');
+        submitBtn.innerHTML = `<span class="material-symbols-outlined">check</span> Save Transaction`;
+        
         // Open
         this.addSheet.classList.add('open');
         setTimeout(() => this.entryAmount.focus(), 150);
@@ -479,6 +508,87 @@ class AppUI {
         this.addSheet.classList.remove('open');
         // Unfocus active inputs to prevent keyboard popups on mobile
         document.activeElement.blur();
+    }
+
+    openEditDialog(id) {
+        const tx = window.store.transactions.find(t => t.id === id);
+        if (!tx) return;
+
+        this.editingTransactionId = tx.id;
+        this.activeFormType = tx.type;
+        this.selectedMode = tx.mode || 'Cash';
+        
+        // Form pre-populating
+        this.entryAmount.value = tx.amount;
+        this.entryNote.value = tx.note || '';
+        this.entryDate.value = tx.date;
+
+        // Toggle Sheet UI elements
+        if (tx.type === 'expense') {
+            this.sheetTitle.textContent = 'Edit Expense';
+            this.toggleExpense.classList.add('active');
+            this.toggleIncome.classList.remove('active');
+            this.formModeGroup.style.display = 'flex';
+            
+            // Handle Card name visibility
+            if (tx.mode === 'Card') {
+                this.cardNameGroup.style.display = 'flex';
+                this.entryCardName.value = tx.cardName || '';
+            } else {
+                this.cardNameGroup.style.display = 'none';
+                this.entryCardName.value = '';
+            }
+        } else {
+            this.sheetTitle.textContent = 'Edit Income';
+            this.toggleExpense.classList.remove('active');
+            this.toggleIncome.classList.add('active');
+            this.formModeGroup.style.display = 'none';
+            this.cardNameGroup.style.display = 'none';
+            this.entryCardName.value = '';
+        }
+
+        // Form Currency Symbol
+        document.getElementById('form-currency-symbol').textContent = window.store.settings.currency;
+
+        // Load Category Chips and select the current one
+        this.renderCategoryChips();
+        
+        // If category chip matches custom / dynamic addition:
+        const hasChip = window.store.categories[tx.type].some(c => c.id === tx.category);
+        if (hasChip) {
+            this.selectedCategory = tx.category;
+            // Re-select active chip
+            setTimeout(() => {
+                document.querySelectorAll('.category-chips .cat-chip').forEach(ch => {
+                    if (ch.getAttribute('data-id') === tx.category) {
+                        ch.classList.add('active');
+                    } else {
+                        ch.classList.remove('active');
+                    }
+                });
+            }, 10);
+            this.customCategoryGroup.style.display = 'none';
+            this.entryCustomCategory.value = '';
+        } else {
+            // It's a custom category name that doesn't have a direct chip or was dynamic
+            this.selectedCategory = 'custom';
+            setTimeout(() => {
+                document.querySelectorAll('.category-chips .cat-chip').forEach(ch => ch.classList.remove('active'));
+            }, 10);
+            this.customCategoryGroup.style.display = 'flex';
+            const catObj = window.store.getCategoryById(tx.category, tx.type);
+            this.entryCustomCategory.value = catObj.name;
+        }
+
+        this.renderModeChips();
+
+        // Change Action submit button text
+        const submitBtn = document.getElementById('entry-submit-btn');
+        submitBtn.innerHTML = `<span class="material-symbols-outlined">edit</span> Update Transaction`;
+
+        // Open Sheet
+        this.addSheet.classList.add('open');
+        setTimeout(() => this.entryAmount.focus(), 150);
     }
 
     renderCategoryChips() {
@@ -500,11 +610,17 @@ class AppUI {
             chip.addEventListener('click', () => {
                 document.querySelectorAll('.category-chips .cat-chip').forEach(ch => ch.classList.remove('active'));
                 chip.classList.add('active');
-                this.selectedCategory = c.id;
                 
-                // Hide dynamic inline custom category input since standard is active
-                this.customCategoryGroup.style.display = 'none';
-                this.entryCustomCategory.value = '';
+                if (c.id === 'custom') {
+                    // Automatically trigger custom free-text category input
+                    this.selectedCategory = 'custom';
+                    this.customCategoryGroup.style.display = 'flex';
+                    setTimeout(() => this.entryCustomCategory.focus(), 150);
+                } else {
+                    this.selectedCategory = c.id;
+                    this.customCategoryGroup.style.display = 'none';
+                    this.entryCustomCategory.value = '';
+                }
             });
 
             this.formCategoryChips.appendChild(chip);
@@ -735,10 +851,18 @@ class AppUI {
                 note: this.entryNote.value.trim()
             };
 
-            window.store.addTransaction(tx);
+            // Form handler - Update or insertion switch
+            if (this.editingTransactionId) {
+                window.store.updateTransaction(this.editingTransactionId, tx);
+                this.editingTransactionId = null;
+                this.showSnackbar('Transaction updated');
+            } else {
+                window.store.addTransaction(tx);
+                this.showSnackbar('Transaction saved');
+            }
+            
             this.closeAddDialog();
             this.refreshActiveViewData();
-            this.showSnackbar('Transaction saved');
         });
 
         // Filtering Transactions View
@@ -824,6 +948,15 @@ class AppUI {
         // Generate PWA PNG Icons
         this.pwaIconsBtn.addEventListener('click', () => {
             this.generatePWAPNGIcons();
+        });
+
+        // Balance Privacy Toggle
+        this.balanceVisibilityBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.store.settings.privacyMode = !window.store.settings.privacyMode;
+            window.store.saveSettings();
+            this.refreshActiveViewData();
+            this.showSnackbar(window.store.settings.privacyMode ? 'Privacy Mode enabled' : 'Privacy Mode disabled');
         });
 
         // Export Backup

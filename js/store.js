@@ -12,14 +12,14 @@ const DEFAULT_CATEGORIES = {
         { id: 'entertainment', name: 'Entertainment', icon: 'sports_esports', color: '#EC407A' },
         { id: 'health', name: 'Health', icon: 'medical_services', color: '#66BB6A' },
         { id: 'education', name: 'Education', icon: 'school', color: '#FFCA28' },
-        { id: 'others_exp', name: 'Others', icon: 'more_horiz', color: '#78909C' }
+        { id: 'custom', name: 'Other (Type...)', icon: 'edit_note', color: '#78909C' }
     ],
     income: [
         { id: 'salary', name: 'Salary', icon: 'work', color: '#42A5F5' },
         { id: 'freelance', name: 'Freelance', icon: 'laptop_mac', color: '#26A69A' },
         { id: 'investments', name: 'Investments', icon: 'trending_up', color: '#66BB6A' },
         { id: 'gifts', name: 'Gifts', icon: 'featured_seasonal_and_gifts', color: '#FF7043' },
-        { id: 'others_inc', name: 'Others', icon: 'payments', color: '#78909C' }
+        { id: 'custom', name: 'Other (Type...)', icon: 'edit_note', color: '#78909C' }
     ]
 };
 
@@ -46,7 +46,8 @@ class ExpenseStore {
             currency: '₹',
             currencyName: 'INR',
             budget: 15000.00,
-            theme: 'auto'
+            theme: 'auto',
+            privacyMode: false
         };
         this.loadFromStorage();
     }
@@ -125,6 +126,22 @@ class ExpenseStore {
         this.transactions.unshift(newTx); // Add to beginning of array
         this.saveTransactions();
         return newTx;
+    }
+
+    updateTransaction(id, updatedFields) {
+        const index = this.transactions.findIndex(t => t.id === id);
+        if (index > -1) {
+            const original = this.transactions[index];
+            this.transactions[index] = {
+                ...original,
+                ...updatedFields,
+                amount: parseFloat(updatedFields.amount),
+                cardName: updatedFields.type === 'expense' && updatedFields.mode === 'Card' ? (updatedFields.cardName || '') : ''
+            };
+            this.saveTransactions();
+            return this.transactions[index];
+        }
+        return null;
     }
 
     deleteTransaction(id) {
@@ -314,10 +331,15 @@ class ExpenseStore {
             .sort((a, b) => b.amount - a.amount);
 
         // Standard modes map
-        const modeSummary = ['Cash', 'Card', 'UPI', 'Bank'].map(mode => ({
+        const modeSummary = ['Cash', 'Card', 'UPI', 'Bank', 'Amazon Pay', 'Voucher'].map(mode => ({
             name: mode,
             amount: modeTotals[mode] || 0,
-            color: mode === 'Cash' ? '#FFCA28' : mode === 'Card' ? '#EC407A' : mode === 'UPI' ? '#26A69A' : '#42A5F5'
+            color: mode === 'Cash' ? '#FFCA28' 
+                : mode === 'Card' ? '#EC407A' 
+                : mode === 'UPI' ? '#26A69A' 
+                : mode === 'Bank' ? '#42A5F5' 
+                : mode === 'Amazon Pay' ? '#FF9900' 
+                : '#8E24AA'
         })).filter(m => m.amount > 0);
 
         // Weekly splits: Divide into 4 standard chunks
@@ -465,7 +487,8 @@ class ExpenseStore {
             currency: '₹',
             currencyName: 'INR',
             budget: 15000.00,
-            theme: 'auto'
+            theme: 'auto',
+            privacyMode: false
         };
 
         this.saveTransactions();

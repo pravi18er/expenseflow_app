@@ -59,7 +59,12 @@
                 <section id="view-home" class="app-view active">
                     <!-- Balance Summary Card -->
                     <div class="balance-card">
-                        <div class="balance-sub">Current Balance</div>
+                        <div class="balance-sub" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>Current Balance</span>
+                            <button class="icon-btn ripple" id="balance-visibility-btn" style="width: 28px; height: 28px; color: inherit; opacity: 0.85; margin: 0;" title="Toggle Privacy Mode">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">visibility</span>
+                            </button>
+                        </div>
                         <h1 class="balance-total" id="dash-balance">₹0.00</h1>
                         
                         <div class="balance-row">
@@ -419,7 +424,7 @@
                     <!-- Payment Mode Selection -->
                     <div class="form-group" id="form-mode-group">
                         <label>Payment Method</label>
-                        <div class="mode-chips" id="form-mode-chips">
+                        <div class="mode-chips" id="form-mode-chips" style="flex-wrap: wrap; gap: 8px;">
                             <div class="mode-chip active" data-mode="Cash">
                                 <span class="material-symbols-outlined mode-icon">payments</span> Cash
                             </div>
@@ -431,6 +436,12 @@
                             </div>
                             <div class="mode-chip" data-mode="Bank">
                                 <span class="material-symbols-outlined mode-icon">account_balance</span> Bank
+                            </div>
+                            <div class="mode-chip" data-mode="Amazon Pay">
+                                <span class="material-symbols-outlined mode-icon">shopping_bag</span> Amazon Pay
+                            </div>
+                            <div class="mode-chip" data-mode="Voucher">
+                                <span class="material-symbols-outlined mode-icon">card_giftcard</span> Voucher
                             </div>
                         </div>
                     </div>
