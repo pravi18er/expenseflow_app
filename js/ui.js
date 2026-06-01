@@ -150,9 +150,11 @@ class AppUI {
         const symbol = window.store.settings.currency;
 
         // Privacy eye icon state selector
-        const eyeIcon = this.balanceVisibilityBtn.querySelector('.material-symbols-outlined');
-        if (eyeIcon) {
-            eyeIcon.textContent = window.store.settings.privacyMode ? 'visibility_off' : 'visibility';
+        if (this.balanceVisibilityBtn) {
+            const eyeIcon = this.balanceVisibilityBtn.querySelector('.material-symbols-outlined');
+            if (eyeIcon) {
+                eyeIcon.textContent = window.store.settings.privacyMode ? 'visibility_off' : 'visibility';
+            }
         }
 
         // Header and Balance Panel
