@@ -3,7 +3,7 @@
    Enables offline execution via assets pre-caching.
 */
 
-const CACHE_NAME = 'expenseflow-v1';
+const CACHE_NAME = 'expenseflow-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

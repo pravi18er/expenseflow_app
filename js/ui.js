@@ -891,14 +891,16 @@ class AppUI {
         });
 
         // Export Monthly Report Excel/CSV
-        this.exportExcelBtn.addEventListener('click', () => {
-            if (this.activeAnalyticsMonth) {
-                window.store.exportMonthlyReportExcel(this.activeAnalyticsMonth);
-                this.showSnackbar('Monthly report exported as Excel CSV');
-            } else {
-                this.showSnackbar('No month selected.');
-            }
-        });
+        if (this.exportExcelBtn) {
+            this.exportExcelBtn.addEventListener('click', () => {
+                if (this.activeAnalyticsMonth) {
+                    window.store.exportMonthlyReportExcel(this.activeAnalyticsMonth);
+                    this.showSnackbar('Monthly report exported as Excel CSV');
+                } else {
+                    this.showSnackbar('No month selected.');
+                }
+            });
+        }
 
         // USER ACCOUNT SETTINGS ITEMS
         
@@ -946,18 +948,22 @@ class AppUI {
         // DATA CONTROLLERS ITEMS
         
         // Generate PWA PNG Icons
-        this.pwaIconsBtn.addEventListener('click', () => {
-            this.generatePWAPNGIcons();
-        });
+        if (this.pwaIconsBtn) {
+            this.pwaIconsBtn.addEventListener('click', () => {
+                this.generatePWAPNGIcons();
+            });
+        }
 
         // Balance Privacy Toggle
-        this.balanceVisibilityBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            window.store.settings.privacyMode = !window.store.settings.privacyMode;
-            window.store.saveSettings();
-            this.refreshActiveViewData();
-            this.showSnackbar(window.store.settings.privacyMode ? 'Privacy Mode enabled' : 'Privacy Mode disabled');
-        });
+        if (this.balanceVisibilityBtn) {
+            this.balanceVisibilityBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.store.settings.privacyMode = !window.store.settings.privacyMode;
+                window.store.saveSettings();
+                this.refreshActiveViewData();
+                this.showSnackbar(window.store.settings.privacyMode ? 'Privacy Mode enabled' : 'Privacy Mode disabled');
+            });
+        }
 
         // Export Backup
         document.getElementById('settings-export-btn').addEventListener('click', () => {
