@@ -56,11 +56,34 @@ class AppUI {
         this.exportExcelBtn = document.getElementById('analytics-export-excel-btn');
         this.pwaIconsBtn = document.getElementById('settings-pwa-icons-btn');
         this.balanceVisibilityBtn = document.getElementById('balance-visibility-btn');
+        
+        // Investments & Dash elements
+        this.dashInvestments = document.getElementById('dash-investments');
+        this.entryIsInvestment = document.getElementById('entry-is-investment');
 
         // Overlays
         this.genericDialog = document.getElementById('generic-dialog');
         this.confirmDialog = document.getElementById('confirm-dialog');
         this.snackbar = document.getElementById('app-snackbar');
+
+        // Details bottom-sheet overlay
+        this.detailsSheet = document.getElementById('details-entry-sheet');
+        this.detailsBackdrop = document.getElementById('details-sheet-backdrop');
+        this.closeDetailsBtn = document.getElementById('close-details-btn');
+        this.detailsType = document.getElementById('details-type');
+        this.detailsAmount = document.getElementById('details-amount');
+        this.detailsDate = document.getElementById('details-date');
+        this.detailsCategory = document.getElementById('details-category');
+        this.detailsCatIcon = document.getElementById('details-cat-icon');
+        this.detailsMode = document.getElementById('details-mode');
+        this.detailsModeItem = document.getElementById('details-mode-item');
+        this.detailsModeIcon = document.getElementById('details-mode-icon');
+        this.detailsNotes = document.getElementById('details-notes');
+        this.detailsNotesItem = document.getElementById('details-notes-item');
+        this.detailsInvestmentBadgeItem = document.getElementById('details-investment-badge-item');
+        this.detailsDuplicateBtn = document.getElementById('details-duplicate-btn');
+        this.detailsEditBtn = document.getElementById('details-edit-btn');
+        this.detailsDeleteBtn = document.getElementById('details-delete-btn');
 
         // Theme Switcher buttons
         this.themeChips = document.querySelectorAll('.theme-picker .theme-chip');
@@ -146,7 +169,8 @@ class AppUI {
        DASHBOARD POPULATORS
     ---------------------------------------------------- */
     renderDashboard() {
-        const stats = window.store.getOverallSummary();
+        const currentMonthStr = new Date().toISOString().substring(0, 7); // 'YYYY-MM'
+        const stats = window.store.getOverallSummary(currentMonthStr);
         const symbol = window.store.settings.currency;
 
         // Privacy eye icon state selector
@@ -165,6 +189,9 @@ class AppUI {
         balanceEl.textContent = this.formatAmount(Math.abs(stats.balance), stats.balance < 0, '-');
         document.getElementById('dash-income').textContent = this.formatAmount(stats.totalIncome, true, '+');
         document.getElementById('dash-expense').textContent = this.formatAmount(stats.totalExpense, true, '-');
+        if (this.dashInvestments) {
+            this.dashInvestments.textContent = this.formatAmount(stats.totalInvestments);
+        }
         
         // Savings Progress
         const pct = Math.min(100, Math.max(0, Math.round(stats.savingsRate)));
@@ -202,9 +229,9 @@ class AppUI {
         const tile = document.createElement('div');
         tile.className = 'transaction-tile ripple';
         
-        // Tap-to-edit transaction click trigger
+        // Tap-to-view details overlay
         tile.addEventListener('click', () => {
-            this.openEditDialog(t.id);
+            this.openDetailsDialog(t.id);
         });
         
         // Format Date
@@ -225,6 +252,12 @@ class AppUI {
             : t.mode === 'Amazon Pay' ? 'shopping_bag' 
             : t.mode === 'Voucher' ? 'card_giftcard' 
             : 'payments';
+            
+        // Show investment badge if marked
+        let investmentBadge = '';
+        if (t.isInvestment) {
+            investmentBadge = `<span class="tile-investment-badge"><span class="material-symbols-outlined" style="font-size: 10px; vertical-align: middle; margin-right: 2px;">trending_up</span>Invest</span>`;
+        }
         
         tile.innerHTML = `
             <div class="tile-left">
@@ -232,7 +265,10 @@ class AppUI {
                     <span class="material-symbols-outlined tile-icon">${categoryObj.icon}</span>
                 </div>
                 <div class="tile-info">
-                    <span class="tile-title">${t.note || categoryObj.name}</span>
+                    <span class="tile-title" style="display: flex; align-items: center; gap: 4px;">
+                        ${t.note || categoryObj.name}
+                        ${investmentBadge}
+                    </span>
                     <span class="tile-sub">
                         <span class="material-symbols-outlined" style="font-size:12px;">calendar_today</span> ${day} ${month}
                         &bull; <span class="material-symbols-outlined" style="font-size:12px;">${iconName}</span> ${modeDisplay}
@@ -249,6 +285,70 @@ class AppUI {
             </div>
         `;
         return tile;
+    }
+
+    openDetailsDialog(id) {
+        const tx = window.store.transactions.find(t => t.id === id);
+        if (!tx) return;
+
+        this.selectedDetailsId = tx.id;
+        
+        // Populating text
+        this.detailsType.textContent = tx.type.toUpperCase();
+        this.detailsType.className = `details-type-lbl ${tx.type}`;
+        
+        this.detailsAmount.textContent = this.formatAmount(tx.amount, true, tx.type === 'income' ? '+' : '-');
+        this.detailsAmount.className = `details-amount ${tx.type}`;
+        
+        const dateObj = new Date(tx.date);
+        this.detailsDate.textContent = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        
+        const categoryObj = window.store.getCategoryById(tx.category, tx.type);
+        this.detailsCategory.textContent = categoryObj.name;
+        this.detailsCatIcon.textContent = categoryObj.icon;
+        this.detailsCatIcon.style.color = categoryObj.color;
+        this.detailsCatIcon.style.backgroundColor = `${categoryObj.color}15`;
+
+        if (tx.type === 'expense') {
+            this.detailsModeItem.style.display = 'flex';
+            let modeDisplay = tx.mode || 'Cash';
+            if (tx.mode === 'Card' && tx.cardName) {
+                modeDisplay = `Card (${tx.cardName})`;
+            }
+            this.detailsMode.textContent = modeDisplay;
+            
+            const iconName = tx.mode === 'Card' ? 'credit_card' 
+                : tx.mode === 'UPI' ? 'qr_code_2' 
+                : tx.mode === 'Bank' ? 'account_balance' 
+                : tx.mode === 'Amazon Pay' ? 'shopping_bag' 
+                : tx.mode === 'Voucher' ? 'card_giftcard' 
+                : 'payments';
+            this.detailsModeIcon.textContent = iconName;
+        } else {
+            this.detailsModeItem.style.display = 'none';
+        }
+
+        if (tx.note && tx.note.trim()) {
+            this.detailsNotesItem.style.display = 'flex';
+            this.detailsNotes.textContent = tx.note;
+        } else {
+            this.detailsNotesItem.style.display = 'none';
+        }
+
+        if (tx.isInvestment) {
+            this.detailsInvestmentBadgeItem.style.display = 'flex';
+        } else {
+            this.detailsInvestmentBadgeItem.style.display = 'none';
+        }
+
+        this.detailsSheet.classList.add('open');
+    }
+
+    closeDetailsDialog() {
+        if (this.detailsSheet) {
+            this.detailsSheet.classList.remove('open');
+        }
+        this.selectedDetailsId = null;
     }
 
     triggerDelete(id) {
@@ -473,6 +573,9 @@ class AppUI {
         this.cardNameGroup.style.display = 'none';
         this.entryCustomCategory.value = '';
         this.customCategoryGroup.style.display = 'none';
+        if (this.entryIsInvestment) {
+            this.entryIsInvestment.checked = false;
+        }
         
         // Set standard today date
         const today = new Date().toISOString().substring(0, 10);
@@ -516,6 +619,8 @@ class AppUI {
         const tx = window.store.transactions.find(t => t.id === id);
         if (!tx) return;
 
+        this.closeDetailsDialog(); // Close details pane when opening editor
+
         this.editingTransactionId = tx.id;
         this.activeFormType = tx.type;
         this.selectedMode = tx.mode || 'Cash';
@@ -524,6 +629,9 @@ class AppUI {
         this.entryAmount.value = tx.amount;
         this.entryNote.value = tx.note || '';
         this.entryDate.value = tx.date;
+        if (this.entryIsInvestment) {
+            this.entryIsInvestment.checked = !!tx.isInvestment;
+        }
 
         // Toggle Sheet UI elements
         if (tx.type === 'expense') {
@@ -753,6 +861,44 @@ class AppUI {
         // Close Sheet clicks
         this.closeSheetBtn.addEventListener('click', () => this.closeAddDialog());
         this.sheetBackdrop.addEventListener('click', () => this.closeAddDialog());
+        
+        // Close details sheet
+        if (this.closeDetailsBtn) {
+            this.closeDetailsBtn.addEventListener('click', () => this.closeDetailsDialog());
+        }
+        if (this.detailsBackdrop) {
+            this.detailsBackdrop.addEventListener('click', () => this.closeDetailsDialog());
+        }
+
+        // Details panel action buttons
+        if (this.detailsDeleteBtn) {
+            this.detailsDeleteBtn.addEventListener('click', () => {
+                if (this.selectedDetailsId) {
+                    const idToDelete = this.selectedDetailsId;
+                    this.closeDetailsDialog();
+                    this.triggerDelete(idToDelete);
+                }
+            });
+        }
+        if (this.detailsEditBtn) {
+            this.detailsEditBtn.addEventListener('click', () => {
+                if (this.selectedDetailsId) {
+                    this.openEditDialog(this.selectedDetailsId);
+                }
+            });
+        }
+        if (this.detailsDuplicateBtn) {
+            this.detailsDuplicateBtn.addEventListener('click', () => {
+                if (this.selectedDetailsId) {
+                    const duplicated = window.store.duplicateTransaction(this.selectedDetailsId);
+                    this.closeDetailsDialog();
+                    if (duplicated) {
+                        this.refreshActiveViewData();
+                        this.showSnackbar('Transaction duplicated to today');
+                    }
+                }
+            });
+        }
 
         // Sheet Toggles (Income vs Expense)
         this.toggleExpense.addEventListener('click', () => {
@@ -850,7 +996,8 @@ class AppUI {
                 date: this.entryDate.value,
                 mode: this.activeFormType === 'expense' ? this.selectedMode : 'Bank',
                 cardName: this.activeFormType === 'expense' && this.selectedMode === 'Card' ? this.entryCardName.value.trim() : '',
-                note: this.entryNote.value.trim()
+                note: this.entryNote.value.trim(),
+                isInvestment: this.entryIsInvestment ? this.entryIsInvestment.checked : false
             };
 
             // Form handler - Update or insertion switch

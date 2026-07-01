@@ -34,8 +34,8 @@ class ChartManager {
     renderWeeklyChart(canvasId, weeklyData) {
         if (typeof Chart === 'undefined') return;
 
-        const ctx = document.getElementById(canvasId);
-        if (!ctx) return;
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
 
         if (this.charts.weekly) {
             this.charts.weekly.destroy();
@@ -44,17 +44,24 @@ class ChartManager {
         const textColor = this.getTextColor();
         const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-primary').trim() || '#6750A4';
 
-        this.charts.weekly = new Chart(ctx, {
+        const ctx2d = canvas.getContext('2d');
+        const gradient = ctx2d.createLinearGradient(0, 0, 0, 150);
+        gradient.addColorStop(0, primaryColor);
+        gradient.addColorStop(1, primaryColor + '25'); // Fade to 15% opacity
+
+        this.charts.weekly = new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: ['Week 1 (1-7)', 'Week 2 (8-14)', 'Week 3 (15-21)', 'Week 4 (22+)'],
                 datasets: [{
                     label: 'Expense Spent',
                     data: weeklyData,
-                    backgroundColor: primaryColor,
-                    borderRadius: 8,
-                    maxBarThickness: 32,
-                    hoverBackgroundColor: primaryColor + 'D0'
+                    backgroundColor: gradient,
+                    borderColor: primaryColor,
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                    maxBarThickness: 28,
+                    hoverBackgroundColor: primaryColor
                 }]
             },
             options: {

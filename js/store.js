@@ -120,7 +120,8 @@ class ExpenseStore {
             date: tx.date, // 'YYYY-MM-DD'
             mode: tx.mode || 'Cash', // 'Cash' | 'Card' | 'UPI' | 'Bank'
             cardName: tx.type === 'expense' && tx.mode === 'Card' ? (tx.cardName || '') : '',
-            note: tx.note || ''
+            note: tx.note || '',
+            isInvestment: !!tx.isInvestment
         };
         
         this.transactions.unshift(newTx); // Add to beginning of array
@@ -136,7 +137,8 @@ class ExpenseStore {
                 ...original,
                 ...updatedFields,
                 amount: parseFloat(updatedFields.amount),
-                cardName: updatedFields.type === 'expense' && updatedFields.mode === 'Card' ? (updatedFields.cardName || '') : ''
+                cardName: updatedFields.type === 'expense' && updatedFields.mode === 'Card' ? (updatedFields.cardName || '') : '',
+                isInvestment: !!updatedFields.isInvestment
             };
             this.saveTransactions();
             return this.transactions[index];
@@ -150,6 +152,19 @@ class ExpenseStore {
             const deleted = this.transactions.splice(index, 1)[0];
             this.saveTransactions();
             return deleted;
+        }
+        return null;
+    }
+
+    duplicateTransaction(id) {
+        const tx = this.transactions.find(t => t.id === id);
+        if (tx) {
+            const today = new Date().toISOString().substring(0, 10);
+            const duplicated = this.addTransaction({
+                ...tx,
+                date: today
+            });
+            return duplicated;
         }
         return null;
     }
@@ -168,6 +183,8 @@ class ExpenseStore {
         if (filter !== 'all') {
             if (filter === 'income' || filter === 'expense') {
                 results = results.filter(t => t.type === filter);
+            } else if (filter === 'investments') {
+                results = results.filter(t => t.isInvestment);
             } else {
                 results = results.filter(t => t.mode === filter);
             }
@@ -177,7 +194,7 @@ class ExpenseStore {
         if (query.trim()) {
             const lowercaseQuery = query.toLowerCase().trim();
             results = results.filter(t => {
-                const noteMatch = t.note.toLowerCase().includes(lowercaseQuery);
+                const noteMatch = (t.note || '').toLowerCase().includes(lowercaseQuery);
                 const categoryObj = this.getCategoryById(t.category, t.type);
                 const catNameMatch = categoryObj ? categoryObj.name.toLowerCase().includes(lowercaseQuery) : false;
                 return noteMatch || catNameMatch;
@@ -242,32 +259,56 @@ class ExpenseStore {
         return Array.from(months).sort((a, b) => b.localeCompare(a));
     }
 
-    // Calculates overall dashboard metrics (Current rolling balances)
-    getOverallSummary() {
+    // Calculates monthly dashboard metrics (Current monthly isolated balances)
+    getOverallSummary(monthStr) {
+        if (!monthStr) {
+            monthStr = new Date().toISOString().substring(0, 7); // Default to current month 'YYYY-MM'
+        }
+
+        const monthTxs = this.transactions.filter(t => t.date && t.date.startsWith(monthStr));
+
         let totalIncome = 0;
         let totalExpense = 0;
+        let totalInvestments = 0;
+        let budgetExpense = 0;
 
-        this.transactions.forEach(t => {
-            if (t.type === 'income') totalIncome += t.amount;
-            else totalExpense += t.amount;
+        monthTxs.forEach(t => {
+            if (t.isInvestment) {
+                totalInvestments += t.amount;
+            }
+            if (t.type === 'income') {
+                totalIncome += t.amount;
+            } else {
+                totalExpense += t.amount;
+                if (!t.isInvestment) {
+                    budgetExpense += t.amount;
+                }
+            }
         });
 
         const balance = totalIncome - totalExpense;
         const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
         
-        // Daily average spend of the CURRENT month
+        // Daily average spend of the specified month
         const now = new Date();
         const currentMonthStr = now.toISOString().substring(0, 7); // 'YYYY-MM'
-        const currentMonthTxs = this.transactions.filter(t => t.date.startsWith(currentMonthStr) && t.type === 'expense');
-        const dayOfMonth = now.getDate();
+        let daysCount = 30;
         
-        let currentMonthSpend = 0;
-        currentMonthTxs.forEach(t => currentMonthSpend += t.amount);
-        const dailyAvg = dayOfMonth > 0 ? (currentMonthSpend / dayOfMonth) : 0;
+        if (monthStr === currentMonthStr) {
+            daysCount = now.getDate();
+        } else {
+            const parts = monthStr.split('-');
+            const year = parseInt(parts[0]);
+            const month = parseInt(parts[1]);
+            daysCount = new Date(year, month, 0).getDate(); // last day of that month
+        }
+        
+        // Calculate daily average of consumption expenses (excluding investments)
+        const dailyAvg = daysCount > 0 ? (budgetExpense / daysCount) : 0;
 
-        // Main payment mode
+        // Main payment mode for this month's expenses
         const modeCounts = {};
-        this.transactions.filter(t => t.type === 'expense').forEach(t => {
+        monthTxs.filter(t => t.type === 'expense').forEach(t => {
             modeCounts[t.mode] = (modeCounts[t.mode] || 0) + 1;
         });
         let mainMode = 'None';
@@ -283,7 +324,9 @@ class ExpenseStore {
             balance,
             totalIncome,
             totalExpense,
-            savingsRate: Math.max(0, savingsRate), // don't show negative savings rate
+            totalInvestments,
+            budgetExpense,
+            savingsRate: Math.max(0, savingsRate),
             dailyAvg,
             mainMode
         };
@@ -291,14 +334,21 @@ class ExpenseStore {
 
     // Comprehensive monthly analytics data
     getMonthSummary(monthYearStr) { // 'YYYY-MM'
-        const filteredTxs = this.transactions.filter(t => t.date.startsWith(monthYearStr));
+        const filteredTxs = this.transactions.filter(t => t.date && t.date.startsWith(monthYearStr));
         
         let totalIncome = 0;
         let totalExpense = 0;
+        let budgetExpense = 0;
 
         filteredTxs.forEach(t => {
-            if (t.type === 'income') totalIncome += t.amount;
-            else totalExpense += t.amount;
+            if (t.type === 'income') {
+                totalIncome += t.amount;
+            } else {
+                totalExpense += t.amount;
+                if (!t.isInvestment) {
+                    budgetExpense += t.amount;
+                }
+            }
         });
 
         // Split spend by category
@@ -342,11 +392,10 @@ class ExpenseStore {
                 : '#8E24AA'
         })).filter(m => m.amount > 0);
 
-        // Weekly splits: Divide into 4 standard chunks
-        // Week 1: 1-7, Week 2: 8-14, Week 3: 15-21, Week 4: 22-end
+        // Weekly spends: Divide into 4 standard chunks
         const weeklySpends = [0, 0, 0, 0];
         filteredTxs.forEach(t => {
-            if (t.type === 'expense') {
+            if (t.type === 'expense' && !t.isInvestment) {
                 const day = parseInt(t.date.split('-')[2]);
                 if (day <= 7) weeklySpends[0] += t.amount;
                 else if (day <= 14) weeklySpends[1] += t.amount;
@@ -358,7 +407,8 @@ class ExpenseStore {
         return {
             totalIncome,
             totalExpense,
-            remainingBudget: Math.max(0, this.settings.budget - totalExpense),
+            budgetExpense,
+            remainingBudget: Math.max(0, this.settings.budget - budgetExpense),
             categorySpends: sortedCategories,
             modeSpends: modeSummary,
             weeklySpends

@@ -80,6 +80,12 @@
                                 </div>
                                 <div class="col-val" id="dash-expense">-₹0.00</div>
                             </div>
+                            <div class="balance-col investments">
+                                <div class="col-lbl">
+                                    <span class="material-symbols-outlined font-icon">trending_up</span> Invest
+                                </div>
+                                <div class="col-val" id="dash-investments">₹0.00</div>
+                            </div>
                         </div>
 
                         <!-- Savings Progress Bar -->
@@ -145,6 +151,7 @@
                             <div class="filter-chip active" data-filter="all">All</div>
                             <div class="filter-chip" data-filter="expense">Expenses</div>
                             <div class="filter-chip" data-filter="income">Incomes</div>
+                            <div class="filter-chip" data-filter="investments">Investments</div>
                             <div class="filter-chip" data-filter="Cash">Cash</div>
                             <div class="filter-chip" data-filter="Card">Card</div>
                             <div class="filter-chip" data-filter="UPI">UPI</div>
@@ -457,6 +464,15 @@
                         <label for="entry-note">Description / Notes</label>
                         <input type="text" id="entry-note" placeholder="Grocery, salary, utility bill...">
                     </div>
+
+                    <!-- Investment Toggle Switch -->
+                    <div class="form-group-row">
+                        <label for="entry-is-investment" style="font-weight: 500; font-size: 13px; color: var(--md-sys-color-on-surface-variant);">Mark as Investment</label>
+                        <label class="switch">
+                            <input type="checkbox" id="entry-is-investment">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Submit Button -->
@@ -466,6 +482,81 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Transaction Details Bottom Sheet -->
+    <div class="bottom-sheet" id="details-entry-sheet">
+        <div class="sheet-backdrop" id="details-sheet-backdrop"></div>
+        <div class="sheet-content">
+            <div class="sheet-drag-handle"></div>
+            
+            <div class="sheet-header">
+                <h3>Transaction Details</h3>
+                <button class="icon-btn ripple" id="close-details-btn">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="details-body">
+                <!-- Large Amount Display -->
+                <div class="details-amount-wrapper">
+                    <span class="details-type-lbl" id="details-type">EXPENSE</span>
+                    <h1 class="details-amount" id="details-amount">₹0.00</h1>
+                </div>
+
+                <!-- Detail list fields -->
+                <div class="details-info-list">
+                    <div class="details-info-item">
+                        <span class="material-symbols-outlined info-icon">calendar_today</span>
+                        <div class="info-content">
+                            <span class="info-lbl">Date</span>
+                            <span class="info-val" id="details-date">July 1, 2026</span>
+                        </div>
+                    </div>
+                    <div class="details-info-item">
+                        <span class="material-symbols-outlined info-icon" id="details-cat-icon">category</span>
+                        <div class="info-content">
+                            <span class="info-lbl">Category</span>
+                            <span class="info-val" id="details-category">Food</span>
+                        </div>
+                    </div>
+                    <div class="details-info-item" id="details-mode-item">
+                        <span class="material-symbols-outlined info-icon" id="details-mode-icon">payments</span>
+                        <div class="info-content">
+                            <span class="info-lbl">Payment Method</span>
+                            <span class="info-val" id="details-mode">Cash</span>
+                        </div>
+                    </div>
+                    <div class="details-info-item" id="details-notes-item">
+                        <span class="material-symbols-outlined info-icon">notes</span>
+                        <div class="info-content">
+                            <span class="info-lbl">Description / Notes</span>
+                            <span class="info-val" id="details-notes">-</span>
+                        </div>
+                    </div>
+                    <div class="details-info-item" id="details-investment-badge-item" style="display: none;">
+                        <span class="material-symbols-outlined info-icon" style="color: #66BB6A;">trending_up</span>
+                        <div class="info-content">
+                            <span class="info-lbl">Asset Tag</span>
+                            <span class="info-val" style="color: #66BB6A; font-weight: 600;">Marked as Investment</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action buttons: Edit, Duplicate, Delete -->
+            <div class="details-actions">
+                <button class="btn btn-tonal ripple" id="details-duplicate-btn" style="flex: 1;">
+                    <span class="material-symbols-outlined">content_copy</span> Duplicate
+                </button>
+                <button class="btn btn-tonal ripple" id="details-edit-btn" style="flex: 1;">
+                    <span class="material-symbols-outlined">edit</span> Edit
+                </button>
+                <button class="btn btn-error ripple" id="details-delete-btn" style="flex: 1;">
+                    <span class="material-symbols-outlined">delete</span> Delete
+                </button>
+            </div>
         </div>
     </div>
 
